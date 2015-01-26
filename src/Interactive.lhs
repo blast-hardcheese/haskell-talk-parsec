@@ -1,3 +1,17 @@
+Introduction
+============
+
+This is intended to be a brief, directed introduction to Parsec.
+
+Parsec is a parser combinator library for Haskell. Another popular choice is [attoparsec](http://hackage.haskell.org/package/attoparsec), which promises faster parsing, and binary parsing by way of `ByteString`. While very exciting, it is beyond the scope of this talk.
+
+All the definitions in this file can be found as a Literate Haskell file, `src/Interactive.lhs`.
+
+Let's get started.
+
+Language Features
+=================
+
 For starters, one of Parsec's types, `Stream`, is of type:
 
 ``` {.sourceCode .literate .haskell}
