@@ -97,8 +97,14 @@ know that m and s are the same between `Stream` and `ParsecT`.
 Simple parsers
 ==============
 
+`char` and `string` are two of the most useful primitive parsers I am
+aware of.
+
     char   :: Stream s m Char => Char   -> ParsecT s u m Char
     string :: Stream s m Char => String -> ParsecT s u m String
+
+When applied, we parse exactly what was specified. No flexibility, just
+the expected character (or a parser exception).
 
     λ> parseTest (char 'a') "a"
     'a'
@@ -106,14 +112,23 @@ Simple parsers
     λ> parseTest (char 'a') "abcdef" -- Consumed: 'a', unconsumed "bcdef"
     'a'
 
+Same with `string`; We can see that a `string` parser could really just
+be a sequence of `char` parsers, the return type of the parser being
+`[Char]`.
+
     λ> parseTest (string "hello") "hello"
     "hello"
 
 Combining parsers
 =================
 
+`many` and `many1` both take parsers of return type `a`, and return
+`[a]` (much like `string`).
+
     many  ::                 ParsecT s u m a -> ParsecT s u m [a]
     many1 :: Stream s m t => ParsecT s u m a -> ParsecT s u m [a]
+
+We can see this in action...
 
     λ> parseTest (many $ char 'a') "aaa"
     "aaa"
@@ -124,17 +139,29 @@ Combining parsers
     λ> parseTest (many1 $ char 'a') "aaa"
     "aaa"
 
+... and an example of a match failure:
+
     λ> parseTest (many1 $ char 'a') ""
     parse error at (line 1, column 1):
     unexpected end of input
     expecting "a"
 
-Conditional parsers
-===================
+bringing us to...
+
+Conditional and zero-width parsers
+==================================
 
     manyTill :: Stream s m t => ParsecT s u m a -> ParsecT s u m end -> ParsecT s u m [a]
     skipMany :: ParsecT s u m a -> ParsecT s u m ()
     notFollowedBy :: (Stream s m t, Show a) => ParsecT s u m a -> ParsecT s u m ()
+
+manyTill is a parser that will *not* consume the whatever the second
+parser matches. Equivalent to:
+
+``` {.sourceCode .literate .haskell}
+manyTill' :: ParsecT s u m a -> ParsecT s u m end -> ParsecT s u m [a]
+manyTill' c end = (c >>= (\x -> (x:) <$> (manyTill' c end))) <|> (end >>= (\_ -> return []))
+```
 
     λ> parseTest (manyTill (char 'a') (char 'b')) "aaab"
     "aaa"
