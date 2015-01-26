@@ -90,7 +90,7 @@ Stream s m t
     instance Monad m => Stream [tok] m tok
       -- Defined in ‘Text.Parsec.Prim’
 
-For many parsers, we'll need to mention `Stream`, to let the type system know that m and s are the same between `Stream` and `ParsecT`.
+For many parsers, we'll need to mention `Stream`, to let the type system know that m and s are the same between `Stream` and `ParsecT`. Because of this, I'll be using `ParsecT` in all my examples.
 
 Simple parsers
 ==============

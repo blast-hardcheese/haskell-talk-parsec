@@ -110,7 +110,8 @@ Stream s m t
       -- Defined in ‘Text.Parsec.Prim’
 
 For many parsers, we'll need to mention `Stream`, to let the type system
-know that m and s are the same between `Stream` and `ParsecT`.
+know that m and s are the same between `Stream` and `ParsecT`. Because
+of this, I'll be using `ParsecT` in all my examples.
 
 Simple parsers
 ==============
