@@ -179,12 +179,15 @@ manyTill' c end = (c >>= (\x -> (x:) <$> (manyTill' c end))) <|> (end >>= (\_ ->
 Transformations
 ===============
 
+As it turns out, we can fmap on the result of a parse:
+
     -- Parse reversed string
     λ> parseTest (reverse <$> (string xs)) "hello"
     "olleh"
 
-    -- Parse base 10 number, returning it as an Int
-    -- We have to specify the return type of the parser here, for `read`'s benefit
+Parse a base 10 number, returning it as an Int. We do have to specify
+the return type here, so `read` knows what to look for. If `read` fails,
+the parse fails, and the next is tried.
 
 ``` {.sourceCode .literate .haskell}
 baseTen :: Stream s m Char => ParsecT s u m Int
@@ -193,6 +196,17 @@ baseTen = read <$> (many1 digit)
 
     λ> parseTest baseTen "100"
     100
+
+``` {.sourceCode .literate .haskell}
+xTo999 :: Stream s m Char => ParsecT s u m Int
+xTo999 = ((\_ -> 999) <$> (char 'x'))
+```
+
+    λ> parseTest (baseTen <|> xTo999) "1234"
+    1234
+
+    λ> parseTest (baseTen <|> xTo999) "x"
+    999
 
     -- Simple octal-to-integer
 
