@@ -10,6 +10,10 @@ Because of `m :: * -> *`, (I think,) we need:
 
 which lets us pass monad constructors (again, only about 30% sure) as arguments to `Stream`.
 
+Let's also make this easy to import,
+
+>module Interactive where
+
 Imports
 =======
 
