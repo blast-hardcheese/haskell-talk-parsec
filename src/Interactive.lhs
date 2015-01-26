@@ -84,8 +84,6 @@ Simple parsers
     char   :: Stream s m Char => Char   -> ParsecT s u m Char
     string :: Stream s m Char => String -> ParsecT s u m String
 
-\#### Examples
-
     λ> parseTest (char 'a') "a"
     'a'
 
@@ -100,8 +98,6 @@ Combining parsers
 
     many  ::                 ParsecT s u m a -> ParsecT s u m [a]
     many1 :: Stream s m t => ParsecT s u m a -> ParsecT s u m [a]
-
-\#### Examples
 
     λ> parseTest (many $ char 'a') "aaa"
     "aaa"
@@ -123,8 +119,6 @@ Conditional parsers
     manyTill :: Stream s m t => ParsecT s u m a -> ParsecT s u m end -> ParsecT s u m [a]
     skipMany :: ParsecT s u m a -> ParsecT s u m ()
     notFollowedBy :: (Stream s m t, Show a) => ParsecT s u m a -> ParsecT s u m ()
-
-\#### Examples
 
     λ> parseTest (manyTill (char 'a') (char 'b')) "aaab"
     "aaa"
