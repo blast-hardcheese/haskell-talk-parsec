@@ -16,8 +16,6 @@ arguments to `Stream`.
 Imports
 =======
 
-For starters,
-
 ``` {.sourceCode .literate .haskell}
 import Text.Parsec
 ```

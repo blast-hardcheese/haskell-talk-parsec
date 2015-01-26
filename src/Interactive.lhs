@@ -13,8 +13,6 @@ which lets us pass monad constructors (again, only about 30% sure) as arguments 
 Imports
 =======
 
-For starters,
-
 > import Text.Parsec
 
 gets us most of what will be discussed in this talk.
