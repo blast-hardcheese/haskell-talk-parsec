@@ -181,13 +181,13 @@ If `read` fails, the parse fails, and the next is tried.
     λ> parseTest (baseTen <|> xTo999) "x"
     999
 
-    -- Simple octal-to-integer
+Naive octal-to-integer implementation
 
 > otoi :: [Char] -> Int
 > otoi = foldl (\a x -> a * 8 + conv x) 0
 >   where conv c = (ord c) - (ord '0')
 
-    -- Parse octal number, returning it as an Int
+Match as many octal digits as we can, then map over that to transform our result.
 
 > baseEight :: Stream s m Char => ParsecT s u m Int
 > baseEight = otoi <$> (many1 octDigit)

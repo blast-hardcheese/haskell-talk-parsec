@@ -208,7 +208,7 @@ xTo999 = ((\_ -> 999) <$> (char 'x'))
     λ> parseTest (baseTen <|> xTo999) "x"
     999
 
-    -- Simple octal-to-integer
+Naive octal-to-integer implementation
 
 ``` {.sourceCode .literate .haskell}
 otoi :: [Char] -> Int
@@ -216,7 +216,8 @@ otoi = foldl (\a x -> a * 8 + conv x) 0
   where conv c = (ord c) - (ord '0')
 ```
 
-    -- Parse octal number, returning it as an Int
+Match as many octal digits as we can, then map over that to transform
+our result.
 
 ``` {.sourceCode .literate .haskell}
 baseEight :: Stream s m Char => ParsecT s u m Int
