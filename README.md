@@ -39,15 +39,56 @@ import Data.List (findIndex)
 Basic types
 ===========
 
-    data ParsecT s u m a Source
+Parsec s u
+----------
 
--   `ParsecT s u m a` is a parser with stream type `s`, user state type
-    `u`, underlying monad `m` and return type `a`.
+    λ> :i Parsec
+    type Parsec s u =
+      ParsecT s u Data.Functor.Identity.Identity
+            -- Defined in ‘Text.Parsec.Prim’
 
-    class Monad m =\> Stream s m t
+Basic wrapper around ParsecT, using the `Identity` monad for simplicity
+when starting out.
 
--   An instance of Stream has stream type s, underlying monad m and
-    token type t determined by the stream
+ParsecT s u m a
+---------------
+
+    λ> :i ParsecT
+    newtype ParsecT s u (m :: * -> *) a
+      = Text.Parsec.Prim.ParsecT {Text.Parsec.Prim.unParser :: forall b.
+                                                               State s u
+                                                               -> (a -> State s u -> ParseError -> m b)
+                                                               -> (ParseError -> m b)
+                                                               -> (a -> State s u -> ParseError -> m b)
+                                                               -> (ParseError -> m b)
+                                                               -> m b}
+            -- Defined in ‘Text.Parsec.Prim’
+    instance Monad (ParsecT s u m) -- Defined in ‘Text.Parsec.Prim’
+    instance Functor (ParsecT s u m) -- Defined in ‘Text.Parsec.Prim’
+
+More comprehensive, and (in fact,) the underlying type of (all?) parsers
+in Parsec. This gives full control over:
+
+-   s: Stream type. A stream represents a list of tokens.
+    Text.Parsec.Prim (primitives) provides a `Stream` for `Char`, which
+    is what we will be using here.
+-   u: User state type. Can be anything, if left empty is determined to
+    be `Unit`.
+-   m: Underlying monad. Defaults to `Identity`, I haven't found a
+    reason to change this.
+
+Stream s m
+----------
+
+    λ> :i Stream
+    class Monad m => Stream s (m :: * -> *) t | s -> t where
+      uncons :: s -> m (Maybe (t, s))
+            -- Defined in ‘Text.Parsec.Prim’
+    instance Monad m => Stream [tok] m tok
+      -- Defined in ‘Text.Parsec.Prim’
+
+For many parsers, we'll need to mention `Stream`, to let the type system
+know that m and s are the same between `Stream` and `ParsecT`.
 
 Simple parsers:
 
