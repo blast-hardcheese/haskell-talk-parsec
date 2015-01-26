@@ -209,6 +209,8 @@ Match as many octal digits as we can, then map over that to transform our result
 Do notation
 ===========
 
+Up until now, I've stayed away from `do` notation. This is partially because [do notation is considered harmful](https://wiki.haskell.org/Do_notation_considered_harmful), but also because it's helpful to remember that these combinators really are just plain Haskell, and behave as such.
+
 > comment :: Stream s m Char => ParsecT s u m [Char]
 > comment = do
 >   _ <- char '-'
