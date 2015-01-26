@@ -1,10 +1,12 @@
     data ParsecT s u m a Source
 
-- `ParsecT s u m a` is a parser with stream type `s`, user state type `u`, underlying monad `m` and return type `a`.
+-   `ParsecT s u m a` is a parser with stream type `s`, user state type
+    `u`, underlying monad `m` and return type `a`.
 
-    class Monad m => Stream s m t
+    class Monad m =\> Stream s m t
 
-- An instance of Stream has stream type s, underlying monad m and token type t determined by the stream
+-   An instance of Stream has stream type s, underlying monad m and
+    token type t determined by the stream
 
 Simple parsers:
 
