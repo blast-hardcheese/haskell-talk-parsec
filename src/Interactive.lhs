@@ -23,7 +23,7 @@ gets us most of what will be discussed in this talk.
 
 It will be handy to have the following functions available later on, but I
 import them directly here as to not introduce name collisions.
-In particular, `<|>` seems to be defined in Parsec and Control.Applicative,
+In particular, `<|>` (or) seems to be defined in Parsec and Control.Applicative,
 better to just not mess with it.
 
 > import Control.Applicative ((<$>))
@@ -66,8 +66,8 @@ More comprehensive, and (in fact,) the underlying type of (all?) parsers in Pars
 - u: User state type. Can be anything, if left empty is determined to be `Unit`.
 - m: Underlying monad. Defaults to `Identity`, I haven't found a reason to change this.
 
-Stream s m
-----------
+Stream s m t
+------------
 
     λ> :i Stream
     class Monad m => Stream s (m :: * -> *) t | s -> t where
@@ -138,7 +138,7 @@ manyTill is a parser that will _not_ consume the whatever the second parser matc
 Equivalent to:
 
 > manyTill' :: ParsecT s u m a -> ParsecT s u m end -> ParsecT s u m [a]
-> manyTill' c end = (c >>= (\x -> (x:) <$> (manyTill' c end))) <|> (end >>= (\_ -> return []))
+> manyTill' c end = (c >>= (\x -> (x:) <$> (manyTill' c end))) <|> (end >> (return []))
 
     λ> parseTest (manyTill (char 'a') (char 'b')) "aaab"
     "aaa"
@@ -211,13 +211,21 @@ Do notation
 
 Up until now, I've stayed away from `do` notation. This is partially because [do notation is considered harmful](https://wiki.haskell.org/Do_notation_considered_harmful), but also because it's helpful to remember that these combinators really are just plain Haskell, and behave as such.
 
+This being said, do notation is very helpful for visualizing flow. In the following example, we can see very plainly see that the following example does four things:
+
+- Parse a single `-`
+- Parse another `-`
+- Parse zero or more spaces
+- Parse as many anyChars as we can (returning the result).
+
+This will consume (and return), the rest of the input. The dashes and leading spaces are dropped, as they are only structure.
+
 > comment :: Stream s m Char => ParsecT s u m [Char]
 > comment = do
 >   _ <- char '-'
 >   _ <- char '-'
 >   _ <- spaces
->   chars <- many anyChar
->   return chars
+>   many anyChar
 
     λ> parseTest comment "-- This is a comment"
     "This is a comment"
@@ -225,12 +233,24 @@ Up until now, I've stayed away from `do` notation. This is partially because [do
 Parameterized parsers
 =====================
 
-> basen :: Stream s m Char => [Char] -> ParsecT s u m Integer
+To introduce a familiar concept into our crazy world of parsers, we need a new building block:
+
+    λ> :i choice
+    choice :: Stream s m t => [ParsecT s u m a] -> ParsecT s u m a
+            -- Defined in ‘Text.Parsec.Combinator’
+
+`choice` takes a list of parsers (all of the same type), and returns a parser that tries them all, in order, looking for one that succeeds.
+
+If we think back, `char` is a `Char -> ParsecT s u m Char`, so why not fmap `char` over `[Char]` to get `[ParsecT s u m Char]`, exactly what we need for `choice`? This gets us a pretty clean implementation of a "base-n" parser, something that parses any arbitrary number base:
+
+> basen :: Stream s m Char => Num a => [Char] -> ParsecT s u m a
 > basen nums = do
->   found <- many1 $ choice (map char nums)
+>   found <- many1 $ choice (char <$> nums)
 >   let xs = catMaybes $ fmap (\x -> findIndex (== x) nums) found
 >   return $ fromIntegral $ foldl (\a x -> a * n + x) 0 xs
 >   where n = length nums
+
+Now, it becomes trivial to parse any number base:
 
     λ> parseTest (basen "0123456789ABCDEF") "100"
     256
@@ -244,18 +264,59 @@ Parameterized parsers
     λ> parseTest (basen "01") "100"
     4
 
-> prefix :: Stream s m Char => String -> ParsecT s u m r -> ParsecT s u m r
-> prefix pre p = do
->   _ <- try $ string pre
->   p
+This is cool, but as we saw, "100" had no designation; it could be any number! How should we add a prefix to a number to indicate which number base it is?
+
+You guessed it, another parser!
+
+> prefix :: Stream s m Char => String -> ParsecT s u m a -> ParsecT s u m a
+> prefix pre p = (string pre) >> p
 
     λ> parseTest (prefix "0b" (basen "01")) "0b101"
     5
 
+Wow, that was easy!
+
+Negative numbers
+================
+
+Positive numbers are pretty cool, but sometimes negative numbers are good too.
+
+> neg :: Stream s m Char => Num n => ParsecT s u m n -> ParsecT s u m n
+> neg c = (char '-') >> (negate <$> c)
+
+This is pretty great, since now _any_ parser that has a `Num` return type can be negated:
+
+    λ> parseTest (neg baseTen ) "-100"
+    -100
+
+    λ> parseTest (neg $ prefix "0b" $ basen "01") "-0b101"
+    -5
+
+even
+
+    λ> parseTest (neg xTo999) "-x"
+    -999
+
+It also turns out to be trivial to parse either positive _or_ negative numbers, by way of `<|>`:
+
+> b10n :: Stream s m Char => Num a => ParsecT s u m a
+> b10n = (neg $ basen nums) <|> (basen nums)
+>   where nums = "0123456789"
+
+Now, b10n works the way we'd expect:
+
+    λ> parseTest b10n "10"
+    10
+
+    λ> parseTest b10n "-10"
+    -10
+
 Balanced parentheses
 ====================
 
-> parens :: Stream s m Char => ParsecT s u m r -> ParsecT s u m r
+No talk about parser combinators would be complete without parentheses. Oh boy.
+
+> parens :: Stream s m Char => ParsecT s u m a -> ParsecT s u m a
 > parens c = do
 >   _ <- char '('
 >   r <- c
@@ -271,8 +332,7 @@ Balanced parentheses
     λ> parseTest (parens $ parens $ prefix "0b" (basen "01")) "((0b101))"
     5
 
-> neg :: Stream s m Char => Num n => ParsecT s u m n -> ParsecT s u m n
-> neg c = do
->   _ <- char '-'
->   num <- c
->   return (-num)
+But wait! `parens` just passes through the return type of the parameterized parser! This means we can:
+
+    λ> parseTest (neg $ parens $ prefix "0b" (basen "01")) "-(0b101)"
+    -5
