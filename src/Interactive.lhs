@@ -76,12 +76,14 @@ Stream s m
 
 For many parsers, we'll need to mention `Stream`, to let the type system know that m and s are the same between `Stream` and `ParsecT`.
 
-Simple parsers:
+Simple parsers
+==============
 
     char   :: Stream s m Char => Char   -> ParsecT s u m Char
     string :: Stream s m Char => String -> ParsecT s u m String
 
-Examples:
+Examples
+--------
 
     λ> parseTest (char 'a') "a"
     'a'
@@ -92,12 +94,14 @@ Examples:
     λ> parseTest (string "hello") "hello"
     "hello"
 
-Combining parsers:
+Combining parsers
+=================
 
     many  ::                 ParsecT s u m a -> ParsecT s u m [a]
     many1 :: Stream s m t => ParsecT s u m a -> ParsecT s u m [a]
 
-Examples:
+Examples
+--------
 
     λ> parseTest (many $ char 'a') "aaa"
     "aaa"
@@ -113,11 +117,15 @@ Examples:
     unexpected end of input
     expecting "a"
 
-Conditional parsers:
+Conditional parsers
+===================
 
     manyTill :: Stream s m t => ParsecT s u m a -> ParsecT s u m end -> ParsecT s u m [a]
     skipMany :: ParsecT s u m a -> ParsecT s u m ()
     notFollowedBy :: (Stream s m t, Show a) => ParsecT s u m a -> ParsecT s u m ()
+
+Examples
+--------
 
     λ> parseTest (manyTill (char 'a') (char 'b')) "aaab"
     "aaa"
@@ -132,7 +140,8 @@ Conditional parsers:
     parse error at (line 1, column 2):
     unexpected 'a'
 
-Transformations:
+Transformations
+===============
 
     -- Parse reversed string
     λ> parseTest (reverse <$> (string xs)) "hello"
@@ -172,7 +181,8 @@ Transformations:
     unexpected "9"
     expecting octal digit
 
-Do notation:
+Do notation
+===========
 
 > comment :: Stream s m Char => ParsecT s u m [Char]
 > comment = do
@@ -185,7 +195,8 @@ Do notation:
     λ> parseTest comment "-- This is a comment"
     "This is a comment"
 
-Parameterized parsers:
+Parameterized parsers
+=====================
 
 > basen :: Stream s m Char => [Char] -> ParsecT s u m Integer
 > basen nums = do
@@ -214,7 +225,8 @@ Parameterized parsers:
     λ> parseTest (prefix "0b" (basen "01")) "0b101"
     5
 
-Balanced parentheses:
+Balanced parentheses
+====================
 
 > parens :: Stream s m Char => ParsecT s u m r -> ParsecT s u m r
 > parens c = do
