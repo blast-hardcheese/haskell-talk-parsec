@@ -52,7 +52,7 @@ particular, `<|>` (or) seems to be defined in Parsec and
 Control.Applicative, better to just not mess with it.
 
 ``` {.sourceCode .literate .haskell}
-import Control.Applicative ((<$>))
+import Control.Applicative ((<$>), (<*), (*>))
 import Data.Char (ord)
 import Data.Maybe (catMaybes)
 import Data.List (findIndex)
@@ -418,3 +418,57 @@ parameterized parser! This means we can:
 
     λ> parseTest (neg $ parens $ prefix "0b" (basen "01")) "-(0b101)"
     -5
+
+Simple JSON parsing
+===================
+
+``` {.sourceCode .literate .haskell}
+data JsValue = JsNumber Int | JsString String | JsArray [JsValue] | JsObject [(String, JsValue)] | JsBool Bool | JsNull
+  deriving (Show, Eq)
+```
+
+``` {.sourceCode .literate .haskell}
+jsonNumber :: Stream s m Char => ParsecT s u m JsValue
+jsonNumber = JsNumber <$> b10n
+```
+
+``` {.sourceCode .literate .haskell}
+jsonString :: Stream s m Char => ParsecT s u m JsValue
+jsonString = JsString <$> ((char '"') *> stringChar <* (char '"'))
+  where stringChar = many $ (char '\\' *> anyChar) <|> ((notFollowedBy (char '"')) *> anyChar)
+```
+
+``` {.sourceCode .literate .haskell}
+always :: Stream s m Char => a -> ParsecT s u m b -> ParsecT s u m a
+always x c = (\_ -> x) <$> c
+```
+
+``` {.sourceCode .literate .haskell}
+jsonBool :: Stream s m Char => ParsecT s u m JsValue
+jsonBool = JsBool <$> ((always True (string "true")) <|> (always False (string "false")))
+```
+
+``` {.sourceCode .literate .haskell}
+jsonNull :: Stream s m Char => ParsecT s u m JsValue
+jsonNull = always JsNull (string "null")
+```
+
+``` {.sourceCode .literate .haskell}
+jsonArray :: Stream s m Char => ParsecT s u m JsValue
+jsonArray = JsArray <$> ((char '[') *> (sepBy json (char ',' >> spaces)) <* (char ']'))
+```
+
+``` {.sourceCode .literate .haskell}
+jsonObject :: Stream s m Char => ParsecT s u m JsValue
+jsonObject = JsObject <$> ((char '{' *> spaces) *> (sepBy kv (try $ spaces >> char ',' >> spaces)) <* (spaces <* char '}'))
+  where kv = do
+          (JsString key) <- jsonString
+          _ <- spaces >> (char ':') >> spaces
+          value <- json
+          return (key, value)
+```
+
+``` {.sourceCode .literate .haskell}
+json :: Stream s m Char => ParsecT s u m JsValue
+json = choice [jsonNumber, jsonString, jsonBool, jsonNull, jsonArray, jsonObject]
+```
