@@ -533,7 +533,98 @@ jsonObject = JsObject <$> (open *> (sepBy kv comma) <* close)
         close = spaces <* char '}'
 ```
 
+With a little bit of work, we could reduce `jsonArray` and `jsonObject`
+into a single `jsonStructure`, with the type:
+
+    jsonStructure :: Stream s m Char => (Char, Char) -> ([a] -> JsValue) -> ParsecT s u m a -> ParsecT s u m JsValue
+
+... but this is left as an exercise for the reader.
+
+json
+----
+
+Now that we've got all the individual components, let's actually
+implement the `json` parser we mentioned earlier:
+
 ``` {.sourceCode .literate .haskell}
 json :: Stream s m Char => ParsecT s u m JsValue
 json = choice [jsonNumber, jsonString, jsonBool, jsonNull, jsonArray, jsonObject]
 ```
+
+Cool! A couple quick checks to validate assumptions:
+
+    λ> parseTest json "[  -5   ]"
+    JsArray [JsNumber (-5)]
+
+    λ> parseTest json "{ \"five\"  : -5   }"
+    JsObject [("five",JsNumber (-5))]
+
+    λ> parseTest json "[{ \"five\"  : -5   }]"
+    JsArray [JsObject [("five",JsNumber (-5))]]
+
+    λ> parseTest json "[{ \"five\"  : -5   }, null, 100]"
+    JsArray [JsObject [("five",JsNumber (-5))],JsNull,JsNumber 100]
+
+    λ> parseTest json "\"こんにちは\""
+    JsString "\12371\12435\12395\12385\12399"
+
+    λ> parseTest json "\"\\\"\""
+    JsString "\""
+
+Fragile type-safe JSON parser
+-----------------------------
+
+Now, let's look at a fragile JSON validator. What's fragile about this?
+Quite a bit, as we'll see in a second, but we can use this as a model
+for getting type-safety out of arbitrary JSON.
+
+First, we need our model
+
+``` {.sourceCode .literate .haskell}
+data User = User { fn :: String, ln :: String, age :: Int }
+  deriving Show
+```
+
+Then, we need this crazy function:
+
+``` {.sourceCode .literate .haskell}
+parseUser :: String -> Maybe User
+parseUser s = unpack $ runParser json () "" s
+  where unpack (Right (JsObject [
+                          ("first",JsString fn),
+                          ("last",JsString ln),
+                          ("age",JsNumber age)
+                      ])) = Just $ User fn ln age
+        unpack _ = Nothing
+```
+
+(Disclaimer: Please don't actually do this.)
+
+It works!
+
+    λ> parseUser "{\"first\": \"Joe\", \"last\": \"Exampleton\", \"age\": 21}"
+    Just (User {fn = "Joe", ln = "Exampleton", age = 21})
+
+And it handles invalid JSON:
+
+    λ> parseUser "{\"first\": \"Joe\", \"last\": \"Exampleton\", \"age\": 21"
+    Nothing
+
+And it handles missing fields!
+
+    λ> parseUser "{\"first\": \"Joe\"}"
+    Nothing
+
+... but it doesn't handle fields out of order:
+
+    λ> parseUser "{\"last\": \"Exampleton\", \"first\": \"Joe\", \"age\": 21}"
+    Nothing
+
+Oh well. How can we make this better?
+
+Turns out, a solid answer to this happens to be...
+
+Stateful Parsers
+================
+
+TODO ;)
