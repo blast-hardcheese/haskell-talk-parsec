@@ -374,7 +374,7 @@ Simple JSON parsing
 > jsonNull = always JsNull (string "null")
 
 > jsonArray :: Stream s m Char => ParsecT s u m JsValue
-> jsonArray = JsArray <$> ((char '[') *> (sepBy json (char ',' >> spaces)) <* (char ']'))
+> jsonArray = JsArray <$> ((char '[') *> (sepBy (spaces *> json <* spaces) (char ',')) <* (char ']'))
 
 > jsonObject :: Stream s m Char => ParsecT s u m JsValue
 > jsonObject = JsObject <$> ((char '{' *> spaces) *> (sepBy kv (try $ spaces >> char ',' >> spaces)) <* (spaces <* char '}'))

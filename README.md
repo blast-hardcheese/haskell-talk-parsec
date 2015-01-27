@@ -455,7 +455,7 @@ jsonNull = always JsNull (string "null")
 
 ``` {.sourceCode .literate .haskell}
 jsonArray :: Stream s m Char => ParsecT s u m JsValue
-jsonArray = JsArray <$> ((char '[') *> (sepBy json (char ',' >> spaces)) <* (char ']'))
+jsonArray = JsArray <$> ((char '[') *> (sepBy (spaces *> json <* spaces) (char ',')) <* (char ']'))
 ```
 
 ``` {.sourceCode .literate .haskell}
