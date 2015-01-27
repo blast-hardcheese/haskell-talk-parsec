@@ -354,18 +354,56 @@ But wait! `parens` just passes through the return type of the parameterized pars
 Simple JSON parsing
 ===================
 
+First, let's describe a simple JSON structure in Haskell types:
+
 > data JsValue = JsNumber Int | JsString String | JsArray [JsValue] | JsObject [(String, JsValue)] | JsBool Bool | JsNull
 >   deriving (Show, Eq)
 
+Since JSON is untyped (or unarily typed), we have to wrap all the underlying types in containers that conform to the `JsValue` type. This'll let us represent heterogenous arrays like...
+
+    λ> JsArray [JsNumber 1, JsString "two", JsNull]
+    JsArray [JsNumber 1,JsString "two",JsNull]
+
+... which is a perfectly valid JSON array.
+
+JsNumber
+--------
+
+As it turns out, we already have something that will parse numbers! Rather than reinvent the wheel, let's just use that parser:
+
 > jsonNumber :: Stream s m Char => ParsecT s u m JsValue
 > jsonNumber = JsNumber <$> b10n
+
+... and pretend that floating point numbers don't exist.
+
+JsString
+--------
+
+Strings are made up of a sequence of characters (either any character that isn't a double quote, or any character escaped by a backslash) surrounded by double quotes:
 
 > jsonString :: Stream s m Char => ParsecT s u m JsValue
 > jsonString = JsString <$> ((char '"') *> stringChar <* (char '"'))
 >   where stringChar = many $ (char '\\' *> anyChar) <|> ((notFollowedBy (char '"')) *> anyChar)
 
+JsBool and JsNull
+-----------------
+
+Since these are parsers that always produce a single result on success, let's write a parser that does exactly that:
+
 > always :: Stream s m Char => a -> ParsecT s u m b -> ParsecT s u m a
-> always x c = (\_ -> x) <$> c
+> always x c = c *> (return x)
+
+Now, when trying to parse "foo", we'll always get "bar" back:
+
+    λ> parseTest (always "bar" (string "foo")) "foo"
+    "bar"
+
+    λ> parseTest (always "bar" (string "foo")) "blah"
+    parse error at (line 1, column 1):
+    unexpected "b"
+    expecting "foo"
+
+We can see the benefit when it comes to the implementation of JsBool and JsNull:
 
 > jsonBool :: Stream s m Char => ParsecT s u m JsValue
 > jsonBool = JsBool <$> ((always True (string "true")) <|> (always False (string "false")))
@@ -373,16 +411,31 @@ Simple JSON parsing
 > jsonNull :: Stream s m Char => ParsecT s u m JsValue
 > jsonNull = always JsNull (string "null")
 
+JsArray and JsObject
+--------------------
+
+Arrays are made more difficult because we want to drop whitespace between the square brackets and the actual values; Parsing `[    -5     ,    "hello"     ]` should be the same as parsing `[-5,"hello"]`.
+
 > jsonArray :: Stream s m Char => ParsecT s u m JsValue
-> jsonArray = JsArray <$> ((char '[') *> (sepBy (spaces *> json <* spaces) (char ',')) <* (char ']'))
+> jsonArray = JsArray <$> (open *> (sepBy json comma) <* close)
+>   where open = char '[' *> spaces
+>         comma = try $ spaces *> (char ',') <* spaces -- We use `try` here to force backtracking
+>         close = spaces <* (char ']')
+
+Given the definitions of `open`, `comma`, and `close`, we can see all the places that whitespace could occur in our input.
+
+As it turns out, the object parser is almost exactly the same as the array parser:
 
 > jsonObject :: Stream s m Char => ParsecT s u m JsValue
-> jsonObject = JsObject <$> ((char '{' *> spaces) *> (sepBy kv (try $ spaces >> char ',' >> spaces)) <* (spaces <* char '}'))
->   where kv = do
+> jsonObject = JsObject <$> (open *> (sepBy kv comma) <* close)
+>   where open = char '{' *> spaces
+>         kv = do
 >           (JsString key) <- jsonString
 >           _ <- spaces >> (char ':') >> spaces
 >           value <- json
 >           return (key, value)
+>         comma = try $ spaces *> (char ',') <* spaces -- We use `try` here to force backtracking
+>         close = spaces <* char '}'
 
 > json :: Stream s m Char => ParsecT s u m JsValue
 > json = choice [jsonNumber, jsonString, jsonBool, jsonNull, jsonArray, jsonObject]
